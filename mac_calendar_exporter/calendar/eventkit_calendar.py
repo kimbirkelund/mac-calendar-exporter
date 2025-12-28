@@ -27,12 +27,42 @@ class EventKitCalendarAccess:
             os.path.dirname(os.path.abspath(__file__)),
             "eventkit_calendar.swift"
         )
-        logger.info(f"Using EventKit script at: {self.script_path}")
+        self.binary_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "eventkit_calendar"
+        )
         
-        # Ensure script is executable
-        if not os.access(self.script_path, os.X_OK):
-            os.chmod(self.script_path, 0o755)
-            logger.info("Set execute permissions on EventKit script")
+        # Compile Swift script to binary if needed
+        self._ensure_binary_compiled()
+        logger.info(f"Using EventKit binary at: {self.binary_path}")
+
+    def _ensure_binary_compiled(self):
+        """Compile the Swift script to a binary if it doesn't exist or is outdated."""
+        needs_compile = False
+        
+        if not os.path.exists(self.binary_path):
+            needs_compile = True
+        elif os.path.exists(self.script_path):
+            # Recompile if script is newer than binary
+            script_mtime = os.path.getmtime(self.script_path)
+            binary_mtime = os.path.getmtime(self.binary_path)
+            if script_mtime > binary_mtime:
+                needs_compile = True
+        
+        if needs_compile:
+            logger.info("Compiling EventKit Swift script to binary...")
+            try:
+                import subprocess
+                result = subprocess.run(
+                    ["swiftc", self.script_path, "-o", self.binary_path, "-framework", "EventKit"],
+                    capture_output=True,
+                    text=True,
+                    check=True
+                )
+                logger.info("Successfully compiled EventKit binary")
+            except subprocess.CalledProcessError as e:
+                logger.error(f"Failed to compile Swift script: {e.stderr}")
+                raise RuntimeError(f"Failed to compile EventKit Swift script: {e.stderr}")
 
     def list_calendars(self) -> List[Dict[str, str]]:
         """
@@ -157,7 +187,7 @@ class EventKitCalendarAccess:
             Optional[Dict]: Parsed JSON output from the script, or None if failed
         """
         try:
-            cmd = [self.script_path] + args
+            cmd = [self.binary_path] + args
             
             # Execute the Swift script
             logger.debug(f"Running: {' '.join(cmd)}")

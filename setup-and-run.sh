@@ -44,16 +44,14 @@ python3 --version
 
 # Swift's EventKit is now used for calendar access, external tools are no longer required
 
-# Create a new virtual environment
-echo -e "\n${BLUE}Creating virtual environment...${NC}"
-# Remove old venv if it exists
+# Create virtual environment if it doesn't exist
+echo -e "\n${BLUE}Setting up virtual environment...${NC}"
 if [ -d "$VENV_DIR" ]; then
-  echo -e "${YELLOW}Removing old virtual environment...${NC}"
-  rm -rf "$VENV_DIR"
+  echo -e "${GREEN}Virtual environment already exists.${NC}"
+else
+  echo -e "${YELLOW}Creating new virtual environment...${NC}"
+  python3 -m venv "$VENV_DIR"
 fi
-
-# Create new environment
-python3 -m venv "$VENV_DIR"
 
 # Activate virtual environment
 echo -e "${BLUE}Activating virtual environment...${NC}"

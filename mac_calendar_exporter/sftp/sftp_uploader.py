@@ -36,7 +36,7 @@ class SFTPUploader:
             username: Username for authentication
             password: Password for password authentication
             key_file: Path to SSH private key for key-based authentication
-            key_passphrase: Passphrase for encrypted SSH private key
+            key_passphrase: Passphrase for encrypted SSH private key (if None, tries Keychain)
             timeout: Connection timeout in seconds
         """
         self.hostname = hostname
@@ -49,6 +49,80 @@ class SFTPUploader:
         self._transport = None
         self._sftp = None
 
+    def _get_key_passphrase_from_keychain(self) -> Optional[str]:
+        """
+        Get SSH key passphrase from macOS Keychain.
+        
+        Returns:
+            Optional[str]: Passphrase from Keychain or None if not found
+        """
+        if not self.key_file:
+            return None
+            
+        key_path = os.path.expanduser(self.key_file)
+        
+        try:
+            import subprocess
+            
+            # Try to get passphrase using the standard macOS SSH Keychain integration
+            # macOS stores SSH key passphrases with the key path as the account
+            result = subprocess.run(
+                [
+                    "security", "find-generic-password",
+                    "-a", key_path,
+                    "-s", "SSH",
+                    "-w"
+                ],
+                capture_output=True,
+                text=True,
+                check=False
+            )
+            
+            if result.returncode == 0 and result.stdout.strip():
+                logger.debug("Retrieved SSH key passphrase from Keychain (SSH service)")
+                return result.stdout.strip()
+            
+            # Try with "OpenSSH" as service name (some versions use this)
+            result = subprocess.run(
+                [
+                    "security", "find-generic-password",
+                    "-a", key_path,
+                    "-s", "OpenSSH",
+                    "-w"
+                ],
+                capture_output=True,
+                text=True,
+                check=False
+            )
+            
+            if result.returncode == 0 and result.stdout.strip():
+                logger.debug("Retrieved SSH key passphrase from Keychain (OpenSSH service)")
+                return result.stdout.strip()
+                
+        except Exception as e:
+            logger.debug(f"Could not get passphrase from Keychain: {e}")
+        
+        # Fallback: try to use ssh-add with the key from the agent
+        # If the key is already loaded in ssh-agent, paramiko can use it
+        try:
+            import subprocess
+            # Check if key is in agent
+            result = subprocess.run(
+                ["ssh-add", "-l"],
+                capture_output=True,
+                text=True,
+                check=False
+            )
+            if key_path in result.stdout or os.path.basename(key_path) in result.stdout:
+                logger.debug("SSH key is loaded in ssh-agent, will try agent auth")
+                # Return empty string to signal we should try without passphrase
+                # (agent will handle it)
+                return ""
+        except Exception:
+            pass
+        
+        return None
+
     def connect(self) -> bool:
         """
         Connect to the SFTP server.
@@ -58,23 +132,66 @@ class SFTPUploader:
         """
         try:
             transport = paramiko.Transport((self.hostname, self.port))
-            transport.connect(
-                username=self.username,
-                password=self.password,
-            )
+            transport.connect()
             
-            # If key file is provided, try key-based authentication
-            if self.key_file and os.path.isfile(self.key_file):
+            authenticated = False
+            
+            # Try ssh-agent first (works with macOS Keychain integration)
+            try:
+                agent = paramiko.Agent()
+                agent_keys = agent.get_keys()
+                if agent_keys:
+                    for key in agent_keys:
+                        try:
+                            transport.auth_publickey(self.username, key)
+                            logger.info("Authenticated via ssh-agent")
+                            authenticated = True
+                            break
+                        except paramiko.ssh_exception.AuthenticationException:
+                            continue
+            except Exception as e:
+                logger.debug(f"ssh-agent auth not available: {e}")
+            
+            # Try key file if agent didn't work
+            if not authenticated and self.key_file and os.path.isfile(self.key_file):
+                passphrase = self.key_passphrase
+                if passphrase is None:
+                    passphrase = self._get_key_passphrase_from_keychain()
+                
                 try:
-                    private_key = paramiko.RSAKey.from_private_key_file(
-                        self.key_file, password=self.key_passphrase
-                    )
-                    transport.auth_publickey(self.username, private_key)
+                    private_key = None
+                    key_types = [
+                        (paramiko.RSAKey, "RSA"),
+                        (paramiko.Ed25519Key, "Ed25519"),
+                        (paramiko.ECDSAKey, "ECDSA"),
+                        (paramiko.DSSKey, "DSS"),
+                    ]
+                    
+                    for key_class, key_name in key_types:
+                        try:
+                            private_key = key_class.from_private_key_file(
+                                self.key_file, password=passphrase if passphrase else None
+                            )
+                            logger.debug(f"Loaded {key_name} key from {self.key_file}")
+                            break
+                        except paramiko.ssh_exception.SSHException:
+                            continue
+                    
+                    if private_key:
+                        transport.auth_publickey(self.username, private_key)
+                        logger.info("Key-based authentication successful")
+                        authenticated = True
                 except Exception as e:
                     logger.error(f"Key-based authentication failed: {e}")
-                    # Fall back to password auth if already provided
-                    if not self.password:
-                        raise
+            
+            # Fall back to password
+            if not authenticated and self.password:
+                transport.auth_password(self.username, self.password)
+                logger.info("Password authentication successful")
+                authenticated = True
+            
+            if not authenticated:
+                raise ValueError("No authentication method succeeded")
 
             self._transport = transport
             self._sftp = paramiko.SFTPClient.from_transport(transport)
