@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>Label</key>
+        <string>kimbir.export-and-deploy-kbi-work-calendar</string>
+
+        <key>ProgramArguments</key>
+        <array>
+            <string>/usr/local/microsoft/powershell/7/pwsh</string>
+            <string>-NoProfile</string>
+            <string>-File</string>
+            <string>/Users/kimbirkelund/code/mac-calendar-exporter/export-and-deploy.ps1</string>
+        </array>
+
+        <key>StartInterval</key>
+        <integer>900</integer>
+
+        <key>StandardErrorPath</key>
+        <string>/tmp/kimbir.update-machine.err</string>
+
+        <key>StandardOutPath</key>
+        <string>/tmp/kimbir.update-machine.out</string>
+    </dict>
+</plist>
