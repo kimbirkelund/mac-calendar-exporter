@@ -17,9 +17,9 @@
         <integer>900</integer>
 
         <key>StandardErrorPath</key>
-        <string>/tmp/kimbir.update-machine.err</string>
+        <string>/tmp/kimbir.export-and-deploy-kbi-work-calendar.err</string>
 
         <key>StandardOutPath</key>
-        <string>/tmp/kimbir.update-machine.out</string>
+        <string>/tmp/kimbir.export-and-deploy-kbi-work-calendar.out</string>
     </dict>
 </plist>

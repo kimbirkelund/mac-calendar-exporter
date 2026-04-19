@@ -18,6 +18,7 @@ try
     Push-Location 'page'
     try
     {
+        $env:PATH = "/opt/homebrew/bin:" + $env:PATH
         npx --yes vercel@latest --yes --prod
     }
     finally
