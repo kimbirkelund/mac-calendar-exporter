@@ -13,7 +13,7 @@ try
     Remove-Item -Path 'page' -Recurse -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Path 'page' -ErrorAction SilentlyContinue | Out-Null
 
-    ./setup-and-run.sh
+    ./setup-and-run.sh --no-interactive
 
     Push-Location 'page'
     try

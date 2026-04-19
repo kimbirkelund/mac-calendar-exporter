@@ -67,6 +67,39 @@ class MacCalendarExporter:
             self.logger.error(f"Failed to initialize EventKit calendar accessor: {e}")
             return None
 
+    def _apply_exclude_list(self, events: List[Dict], exclude_file: str) -> List[Dict]:
+        """
+        Filter out events whose event_id appears in the exclude list file.
+
+        Args:
+            events: List of event dictionaries
+            exclude_file: Path to a text file containing one UUID per line
+
+        Returns:
+            Filtered list of events
+        """
+        self.logger.info(f"Exclude list path: {os.path.abspath(exclude_file)} — {'found' if os.path.exists(exclude_file) else 'not found'}")
+        if not os.path.exists(exclude_file):
+            return events
+
+        with open(exclude_file) as f:
+            excluded_ids = {line.strip() for line in f if line.strip() and not line.startswith('#')}
+
+        if not excluded_ids:
+            return events
+
+        filtered = []
+        for e in events:
+            if e.get('event_id') in excluded_ids:
+                self.logger.info(f"Excluding event id={e.get('event_id')} title={e.get('title')!r}")
+            else:
+                filtered.append(e)
+
+        removed = len(events) - len(filtered)
+        if removed:
+            self.logger.info(f"Excluded {removed} event(s) via {exclude_file}")
+        return filtered
+
     def export_calendar(self):
         """
         Export calendar events to an ICS file.
@@ -109,7 +142,11 @@ class MacCalendarExporter:
                 )
             
             self.logger.info(f"Retrieved {len(events)} events")
-            
+
+            # Apply exclude list filter
+            exclude_file = self.config.get('exclude_list_file', 'exclude-list.txt')
+            events = self._apply_exclude_list(events, exclude_file)
+
             # Generate ICS file
             if events:
                 ics_generator = ICSGenerator()
