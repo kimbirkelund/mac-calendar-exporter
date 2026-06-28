@@ -7,10 +7,8 @@
 
         <key>ProgramArguments</key>
         <array>
-            <string>/usr/local/microsoft/powershell/7/pwsh</string>
-            <string>-NoProfile</string>
-            <string>-File</string>
-            <string>/Users/kimbirkelund/code/mac-calendar-exporter/export-and-deploy.ps1</string>
+            <string>/bin/bash</string>
+            <string>/Users/kimbirkelund/code/mac-calendar-exporter/export-and-deploy.sh</string>
         </array>
 
         <key>StartInterval</key>
