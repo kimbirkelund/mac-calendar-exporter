@@ -19,12 +19,21 @@ for arg in "$@"; do
   fi
 done
 
-# Terminal colors
-RED="\033[0;31m"
-GREEN="\033[0;32m"
-YELLOW="\033[0;33m"
-BLUE="\033[0;34m"
-NC="\033[0m" # No Color
+# Terminal colors (disabled when stdout is not a TTY, e.g. under launchd, so
+# log files stay plain text instead of full of raw ANSI escape bytes)
+if [ -t 1 ]; then
+  RED="\033[0;31m"
+  GREEN="\033[0;32m"
+  YELLOW="\033[0;33m"
+  BLUE="\033[0;34m"
+  NC="\033[0m" # No Color
+else
+  RED=""
+  GREEN=""
+  YELLOW=""
+  BLUE=""
+  NC=""
+fi
 
 echo -e "${BLUE}===== macOS Calendar Exporter Setup and Run =====${NC}"
 
@@ -119,15 +128,15 @@ try:
     exporter = MacCalendarExporter()
     calendar_accessor = exporter._get_calendar_accessor()
     if calendar_accessor:
-        print('\033[0;32mCalendar accessor initialized successfully.\033[0m')
+        print('${GREEN}Calendar accessor initialized successfully.${NC}')
         calendars = calendar_accessor.list_calendars()
         print(f'Found {len(calendars)} calendars:')
         for cal in calendars:
             print(f'  - {cal[\"title\"]}')
     else:
-        print('\033[0;33mUsing mock data.\033[0m')
+        print('${YELLOW}Using mock data.${NC}')
 except Exception as e:
-    print(f'\033[0;31mError testing calendar access: {e}\033[0m')
+    print(f'${RED}Error testing calendar access: {e}${NC}')
 "
 
 # Ask user if they want to run the exporter (only in interactive mode)

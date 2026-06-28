@@ -49,7 +49,13 @@ mkdir -p page
 # 2. Export the calendar to page/ (Swift EventKit via python; no pwsh in chain).
 ./setup-and-run.sh --no-interactive
 
-# 3. Deploy to Vercel.
+# 3. Deploy to Vercel. The vercel CLI emits spinner/cursor-control escape
+# sequences on stderr even under CI/NO_COLOR; strip them so the log stays plain
+# text. Filtering only stderr via process substitution leaves npx's exit status
+# (and the ERR trap) intact.
 cd page
 export PATH="/opt/homebrew/bin:$PATH"
-npx --yes vercel@latest --yes --prod
+export CI=1
+export NO_COLOR=1
+npx --yes vercel@latest --yes --prod \
+    2> >(sed -E $'s/\x1b\\[[0-9;?]*[a-zA-Z]//g' >&2)
