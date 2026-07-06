@@ -57,5 +57,10 @@ cd page
 export PATH="/opt/homebrew/bin:$PATH"
 export CI=1
 export NO_COLOR=1
+# Pin the target Vercel project. The `page` dir is wiped and recreated every
+# run, so a committed .vercel/project.json cannot survive; these env vars do,
+# and stop the CLI from re-linking to a "page" project inferred from the cwd.
+export VERCEL_ORG_ID="team_I0xyEScfAYLLkNQtY7DyRLdA"
+export VERCEL_PROJECT_ID="prj_zq8NAn7iWqLXwGRaEPa7wDliO2VB"
 npx --yes vercel@latest --yes --prod \
     2> >(sed -E $'s/\x1b\\[[0-9;?]*[a-zA-Z]//g' >&2)
