@@ -80,3 +80,6 @@ xcuserdata/
 DerivedData/
 mac_calendar_exporter/calendar/eventkit_calendar
 .env*.local
+
+# Vercel deploy folder
+page/
