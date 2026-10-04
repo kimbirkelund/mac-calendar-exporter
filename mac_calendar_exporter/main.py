@@ -100,6 +100,61 @@ class MacCalendarExporter:
             self.logger.info(f"Excluded {removed} event(s) via {exclude_file}")
         return filtered
 
+    @staticmethod
+    def _participant_email(p: Dict) -> str:
+        url = (p.get('url') or '').strip().lower()
+        if url.startswith('mailto:'):
+            url = url[len('mailto:'):]
+        return url
+
+    def _apply_participation_filter(self, events: List[Dict], my_emails: List[str]) -> List[Dict]:
+        """
+        Drop events the user declined, has not answered, or is not named on.
+
+        Rule per event:
+          * no attendees, or organizer is the user  -> keep (own events)
+          * user is a named attendee                 -> keep only if accepted/tentative
+          * attendees present, user not named        -> drop (distribution-list copies
+                                                        and unanswered list invites)
+
+        "The user" is any attendee whose address is in my_emails, or whom EventKit
+        flags as the current user.
+
+        Args:
+            events: List of event dictionaries
+            my_emails: Email addresses that identify the user
+
+        Returns:
+            Filtered list of events
+        """
+        mine = {e.strip().lower() for e in my_emails if e.strip()}
+
+        def is_me(p: Dict) -> bool:
+            return bool(p.get('is_current_user')) or self._participant_email(p) in mine
+
+        filtered = []
+        for e in events:
+            attendees = e.get('attendees') or []
+            organizer = e.get('organizer')
+            reason = None
+            if not attendees or (organizer and is_me(organizer)):
+                pass
+            else:
+                me = next((a for a in attendees if is_me(a)), None)
+                if me is None:
+                    reason = 'not a named attendee'
+                elif me.get('status') not in ('accepted', 'tentative'):
+                    reason = f"status={me.get('status')}"
+            if reason:
+                self.logger.info(f"Excluding event id={e.get('event_id')} title={e.get('title')!r} start={e.get('start_date')} ({reason})")
+            else:
+                filtered.append(e)
+
+        removed = len(events) - len(filtered)
+        if removed:
+            self.logger.info(f"Excluded {removed} event(s) via participation filter")
+        return filtered
+
     def export_calendar(self):
         """
         Export calendar events to an ICS file.
@@ -146,6 +201,10 @@ class MacCalendarExporter:
             # Apply exclude list filter
             exclude_file = self.config.get('exclude_list_file', 'exclude-list.txt')
             events = self._apply_exclude_list(events, exclude_file)
+
+            # Drop declined / unanswered / not-addressed-to-me invites
+            if self.config.get('exclude_declined', True):
+                events = self._apply_participation_filter(events, self.config.get('my_emails', []))
 
             # Generate ICS file
             if events:

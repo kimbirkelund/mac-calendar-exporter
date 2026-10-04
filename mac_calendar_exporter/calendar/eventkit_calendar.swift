@@ -65,6 +65,28 @@ let outputDateFormatter = DateFormatter()
 outputDateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
 outputDateFormatter.timeZone = TimeZone.current
 
+// Serialize a participant to a JSON-friendly dictionary
+func participantDict(_ p: EKParticipant) -> [String: Any] {
+    let status: String
+    switch p.participantStatus {
+    case .accepted: status = "accepted"
+    case .declined: status = "declined"
+    case .tentative: status = "tentative"
+    case .pending: status = "pending"
+    case .delegated: status = "delegated"
+    case .completed: status = "completed"
+    case .inProcess: status = "in_process"
+    default: status = "unknown"
+    }
+    var d: [String: Any] = [
+        "url": p.url.absoluteString,
+        "status": status,
+        "is_current_user": p.isCurrentUser
+    ]
+    if let name = p.name { d["name"] = name }
+    return d
+}
+
 // EventKit store
 let eventStore = EKEventStore()
 
@@ -130,6 +152,14 @@ func handleCalendarAccess() {
                 
                 if let url = event.url?.absoluteString {
                     eventDict["url"] = url
+                }
+                
+                // Organizer and attendees, so the caller can decide participation
+                if let org = event.organizer {
+                    eventDict["organizer"] = participantDict(org)
+                }
+                if let attendees = event.attendees, !attendees.isEmpty {
+                    eventDict["attendees"] = attendees.map { participantDict($0) }
                 }
                 
                 eventList.append(eventDict)

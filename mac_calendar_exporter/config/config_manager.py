@@ -196,6 +196,14 @@ class ConfigManager:
         if os.environ.get("INCLUDE_DETAILS"):
             self.config["include_details"] = os.environ.get("INCLUDE_DETAILS").lower() in ('true', 'yes', '1')
             
+        # Exclude declined / unanswered invites
+        if os.environ.get("EXCLUDE_DECLINED"):
+            self.config["exclude_declined"] = os.environ.get("EXCLUDE_DECLINED").lower() in ('true', 'yes', '1')
+        
+        # Email addresses that identify the user as an attendee
+        if os.environ.get("MY_EMAILS"):
+            self.config["my_emails"] = [e.strip() for e in os.environ.get("MY_EMAILS").split(',') if e.strip()]
+            
         # Title length limit
         if os.environ.get("TITLE_LENGTH_LIMIT"):
             try:
