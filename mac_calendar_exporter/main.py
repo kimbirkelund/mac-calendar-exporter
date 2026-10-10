@@ -90,7 +90,10 @@ class MacCalendarExporter:
 
         filtered = []
         for e in events:
-            if e.get('event_id') in excluded_ids:
+            # Recurring occurrences carry a "/RID=<ts>" suffix; match on the base id
+            # so listing the series id excludes every occurrence.
+            base_id = (e.get('event_id') or '').split('/RID=')[0]
+            if e.get('event_id') in excluded_ids or base_id in excluded_ids:
                 self.logger.info(f"Excluding event id={e.get('event_id')} title={e.get('title')!r}")
             else:
                 filtered.append(e)
